@@ -29,13 +29,20 @@ function hello () {
   return Promise.resolve(this.createSession())
 }
 
-async function receive ({ data, origin, source }) {
+async function receive ({ data, origin, source }, sender, sendResponse ) {
+  
   if (typeof data !== 'object' || data.jsonrpc !== '2.0') return
-
+ 
   const { id, method, params, session } = data
+
+  if(method == "ready" || typeof method == "undefined") return
 
   function error () {
     return Promise.reject(Error(`Error: No such method ${method}`))
+  }
+
+  if(typeof origin == 'undefined') {
+    origin = sender
   }
 
   R.call(
@@ -47,18 +54,31 @@ async function receive ({ data, origin, source }) {
         .filter(([key, value]) => typeof value !== 'function')
         .reduce((p, [key, value]) => ({ ...p, [key]: value }), {})
       : result
-    source.postMessage({ jsonrpc: '2.0', id, result: { resolve } }, '*')
+
+    
+
+    chrome.tabs.sendMessage(sender.tab.id, { jsonrpc: '2.0', id, result: { resolve } })
+
+    // source.postMessage({ jsonrpc: '2.0', id, result: { resolve } }, '*')
   }).catch(error => {
-    source.postMessage({ jsonrpc: '2.0', id, result: { reject: error.message } }, '*')
+    chrome.tabs.sendMessage(sender.tab.id, { jsonrpc: '2.0', id, result: { reject: error.message } })
+    // source.postMessage({ jsonrpc: '2.0', id, result: { reject: error.message } }, '*')
   })
 }
 
 const RpcServer = stampit({
-  init ({ self = window }) {
+  init ({ self = window, extension = false }) {
+    console.log(extension)
     const handler = this.receive.bind(this)
-    self.addEventListener('message', handler, false)
-    this.destroyServer = () =>
-      self.removeEventListener('message', handler, false)
+    if(extension) {
+      browser.runtime.onMessage.addListener(handler)
+      this.destroyServer = () =>
+        browser.runtime.onMessage.removeListener(handler)
+    } else {
+      self.addEventListener('message', handler, false)
+      this.destroyServer = () =>
+        self.removeEventListener('message', handler, false)
+    }
   },
   methods: {
     receive,

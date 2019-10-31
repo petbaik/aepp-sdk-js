@@ -44,9 +44,14 @@ function post (method) {
  * @example RpcClient()
  */
 const RpcClient = stampit(AsyncInit, {
-  async init ({ parent = window.parent, self = window }, { stamp }) {
-    if (parent === self) {
+  async init ({ parent = window.parent, self = window, extension = false }, { stamp }) {
+
+    if (parent === self && !extension) {
       throw new Error('rpc client: Can\'t send messages to itself')
+    }
+
+    if(extension) {
+      parent = window
     }
 
     let sequence = 0
@@ -56,9 +61,9 @@ const RpcClient = stampit(AsyncInit, {
       if (typeof data !== 'object' || data.type === 'webpackOk') {
         return
       }
-
+      if(data.hasOwnProperty("method")) return 
       const { result: { resolve, reject }, id } = data
-
+      
       if (callbacks[id]) {
         if (resolve !== undefined) {
           callbacks[id].resolve(resolve)
@@ -73,10 +78,8 @@ const RpcClient = stampit(AsyncInit, {
       const ret = new Promise((resolve, reject) => {
         callbacks[sequence] = { resolve, reject }
       })
-
-      parent.postMessage({ jsonrpc: '2.0', id: sequence, method, params, session: this.session }, '*')
+      window.postMessage({ jsonrpc: '2.0', id: sequence, method, params, session: this.session }, '*')
       sequence++
-
       return ret
     }
 
