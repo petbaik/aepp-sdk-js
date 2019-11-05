@@ -155,6 +155,6 @@ const Node = stampit(AsyncInit, {
 })
 
 const NODE_GE_VERSION = '3.0.1'
-const NODE_LT_VERSION = '5.0.0-rc.2'
+const NODE_LT_VERSION = '5.0.3'
 
 export default Node
